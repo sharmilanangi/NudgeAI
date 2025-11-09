@@ -1,0 +1,196 @@
+// Prisma schema for Customers Database
+// This file defines the database schema for customer management
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./customers.db"
+}
+
+model Customer {
+  id                        Int    @id @default(autoincrement())
+  customerId                String @unique
+  name                      String
+  email                     String? @unique
+  phone                     String? @unique
+  address                   String?
+  company                   String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  status                    CustomerStatus @default(ACTIVE)
+  communicationPreferences Json?
+  complianceConsent         Json?
+  metadata                  Json?
+
+  // Relations
+  invoices                  Invoice[]
+  communications            Communication[]
+  nextActions               NextAction[]
+  analyticsEvents           AnalyticsEvent[]
+
+  @@map("customers")
+}
+
+model Invoice {
+  id           Int        @id @default(autoincrement())
+  invoiceNumber String     @unique
+  customerId   String
+  amount       Float
+  dueDate      DateTime
+  issueDate    DateTime
+  daysPastDue  Int        @default(0)
+  status       InvoiceStatus @default(PENDING)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  metadata     Json?
+
+  // Relations
+  customer      Customer @relation(fields: [customerId], references: [customerId])
+  payments      Payment[]
+  paymentPlans  PaymentPlan[]
+  communications Communication[]
+  nextActions   NextAction[]
+  analyticsEvents AnalyticsEvent[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id            Int      @id @default(autoincrement())
+  invoiceNumber String
+  amount        Float
+  paymentDate   DateTime @default(now())
+  paymentMethod String?
+  transactionId String?
+  status        PaymentStatus @default(COMPLETED)
+  metadata      Json?
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceNumber], references: [invoiceNumber])
+
+  @@map("payments")
+}
+
+model PaymentPlan {
+  id                Int      @id @default(autoincrement())
+  invoiceNumber     String
+  totalAmount       Float
+  installmentAmount Float
+  frequency         String?
+  nextPaymentDate   DateTime?
+  status            PaymentPlanStatus @default(ACTIVE)
+  createdAt         DateTime @default(now())
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceNumber], references: [invoiceNumber])
+
+  @@map("payment_plans")
+}
+
+model Communication {
+  id                Int      @id @default(autoincrement())
+  customerId        String
+  invoiceNumber     String?
+  channel           CommunicationChannel
+  strategy          CommunicationStrategy
+  content           String
+  sentAt            DateTime @default(now())
+  deliveryStatus    DeliveryStatus @default(PENDING)
+  responseReceivedAt DateTime?
+  responseContent   String?
+  aiGenerated       Boolean @default(true)
+  complianceScore   Float?
+  cost              Float?
+  metadata          Json?
+
+  // Relations
+  customer Customer @relation(fields: [customerId], references: [customerId])
+  invoice  Invoice? @relation(fields: [invoiceNumber], references: [invoiceNumber])
+
+  @@map("communications")
+}
+
+model NextAction {
+  id                Int      @id @default(autoincrement())
+  customerId        String
+  invoiceNumber     String
+  suggestedAction   String
+  suggestedTime     DateTime?
+  suggestedChannel  String?
+  suggestedStrategy String?
+  confidenceScore   Float?
+  createdAt         DateTime @default(now())
+  executedAt        DateTime?
+  executionStatus   String? @default("pending")
+  result            String?
+
+  // Relations
+  customer Customer @relation(fields: [customerId], references: [customerId])
+  invoice  Invoice @relation(fields: [invoiceNumber], references: [invoiceNumber])
+
+  @@map("next_actions")
+}
+
+model AnalyticsEvent {
+  id         Int      @id @default(autoincrement())
+  eventType  String
+  customerId String?
+  invoiceNumber String?
+  eventData  Json?
+  timestamp  DateTime @default(now())
+  userId     String?
+  sessionId  String?
+
+  // Relations
+  customer Customer? @relation(fields: [customerId], references: [customerId])
+  invoice  Invoice? @relation(fields: [invoiceNumber], references: [invoiceNumber])
+
+  @@map("analytics_events")
+}
+
+// Enums
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  PARTIALLY_PAID
+  WRITTEN_OFF
+}
+
+enum PaymentStatus {
+  COMPLETED
+  FAILED
+  PENDING
+}
+
+enum PaymentPlanStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum CommunicationChannel {
+  EMAIL
+  SMS
+  PHONE
+}
+
+enum CommunicationStrategy {
+  REMINDER
+  NEGOTIATION
+  FINAL_NOTICE
+}
+
+enum DeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}

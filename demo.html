@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nudge AI Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #333; text-align: center; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .btn { background: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .btn:hover { background: #0056b3; }
+        input, select, textarea { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; }
+        .item { background: #f8f9fa; padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .status { padding: 2px 8px; border-radius: 3px; font-size: 12px; }
+        .active { background: #d4edda; color: #155724; }
+        .pending { background: #fff3cd; color: #856404; }
+        .icon { font-weight: bold; margin-right: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Nudge AI Demo</h1>
+        
+        <!-- Quick Actions -->
+        <div class="section">
+            <h3>Quick Actions</h3>
+            <button class="btn" onclick="loadDashboard()"><span class="icon">[DASHBOARD]</span> Load Dashboard</button>
+            <button class="btn" onclick="loadCustomers()"><span class="icon">[USERS]</span> Load Customers</button>
+            <button class="btn" onclick="loadInvoices()"><span class="icon">[INVOICE]</span> Load Invoices</button>
+        </div>
+
+        <!-- Dashboard -->
+        <div class="section">
+            <h3>Dashboard</h3>
+            <div id="dashboard">Click "Load Dashboard" to view stats</div>
+        </div>
+
+        <!-- Add Customer -->
+        <div class="section">
+            <h3>Add Customer</h3>
+            <input type="text" id="name" placeholder="Name">
+            <input type="email" id="email" placeholder="Email">
+            <input type="tel" id="phone" placeholder="Phone">
+            <button class="btn" onclick="addCustomer()"><span class="icon">[ADD]</span> Add Customer</button>
+        </div>
+
+        <!-- Customers List -->
+        <div class="section">
+            <h3>Customers</h3>
+            <div id="customers">Click "Load Customers" to view</div>
+        </div>
+
+        <!-- Invoices -->
+        <div class="section">
+            <h3>Invoices</h3>
+            <div id="invoices">Click "Load Invoices" to view</div>
+        </div>
+
+        <!-- Send Communication -->
+        <div class="section">
+            <h3>AI-Powered Message Generation</h3>
+            <input type="text" id="customerId" placeholder="Customer ID" onchange="autofillMessage()">
+            <select id="channel" onchange="autofillMessage()">
+                <option value="email">Email</option>
+                <option value="sms">SMS</option>
+                <option value="phone">Phone</option>
+            </select>
+            <select id="strategy" onchange="autofillMessage()">
+                <option value="reminder">Reminder</option>
+                <option value="negotiation">Negotiation</option>
+                <option value="final_notice">Final Notice</option>
+            </select>
+            <textarea id="content" placeholder="Enter Customer ID and select options to generate AI message..." rows="6"></textarea>
+            
+            <div id="aiAnalysis" style="margin: 10px 0; padding: 10px; background: #f0f8ff; border-radius: 5px; display: none;">
+                <strong>🤖 AI Analysis:</strong>
+                <div id="aiAnalysisContent"></div>
+            </div>
+            
+            <button class="btn" onclick="sendMessage()"><span class="icon">[SEND]</span> Send Message</button>
+            <button class="btn" onclick="loadMessageHistory()"><span class="icon">[HISTORY]</span> Load Message History</button>
+        </div>
+
+        <!-- Message History -->
+        <div class="section">
+            <h3>Message History</h3>
+            <div id="messageHistory">Enter Customer ID and click "Load Message History"</div>
+        </div>
+
+        <!-- Status -->
+        <div class="section">
+            <h3>System Status</h3>
+            <div id="status">Checking...</div>
+        </div>
+    </div>
+
+    <script>
+        const API = ''; // Use relative URLs since frontend is served from same server
+
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            try {
+                const options = { method, headers: {'Content-Type': 'application/json'} };
+                if (data) options.body = JSON.stringify(data);
+                const response = await fetch(API + endpoint, options);
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                return { error: error.message };
+            }
+        }
+
+        async function loadDashboard() {
+            const [customers, invoices] = await Promise.all([
+                apiCall('/customers'),
+                apiCall('/invoices')
+            ]);
+            
+            document.getElementById('dashboard').innerHTML = `
+                <div class="item"><span class="icon">[TOTAL]</span> Total Customers: ${customers.customers?.length || 0}</div>
+                <div class="item"><span class="icon">[TOTAL]</span> Total Invoices: ${invoices.invoices?.length || 0}</div>
+                <div class="item"><span class="icon">[PENDING]</span> Pending Invoices: ${invoices.invoices?.filter(i => i.status === 'pending').length || 0}</div>
+            `;
+        }
+
+        async function loadCustomers() {
+            const data = await apiCall('/customers');
+            const container = document.getElementById('customers');
+            
+            if (data.error) {
+                container.innerHTML = '<div class="item">[ERROR] Error loading customers</div>';
+                return;
+            }
+            
+            container.innerHTML = data.customers?.map(c => `
+                <div class="item">
+                    <strong>${c.name}</strong> (${c.customerId})<br>
+                    [EMAIL] ${c.email || 'N/A'} | [PHONE] ${c.phone || 'N/A'}<br>
+                    <span class="status ${c.status}">${c.status}</span>
+                </div>
+            `).join('') || '<div class="item">No customers found</div>';
+        }
+
+        async function loadInvoices() {
+            const data = await apiCall('/invoices');
+            const container = document.getElementById('invoices');
+            
+            if (data.error) {
+                container.innerHTML = '<div class="item">[ERROR] Error loading invoices</div>';
+                return;
+            }
+            
+            container.innerHTML = data.invoices?.map(i => `
+                <div class="item">
+                    <strong>Invoice ${i.invoiceNumber}</strong><br>
+                    [CUSTOMER] ${i.customerId} | [AMOUNT] $${i.amount}<br>
+                    [DUE] ${new Date(i.dueDate).toLocaleDateString()}<br>
+                    <span class="status ${i.status}">${i.status}</span> | [DAYS] ${i.daysPastDue} days past due
+                </div>
+            `).join('') || '<div class="item">No invoices found</div>';
+        }
+
+        async function addCustomer() {
+            const customer = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value
+            };
+            
+            const result = await apiCall('/customers', 'POST', customer);
+            if (result.error) {
+                alert('[ERROR] Failed to add customer: ' + result.error);
+            } else {
+                alert('[SUCCESS] Customer added successfully!');
+                document.getElementById('name').value = '';
+                document.getElementById('email').value = '';
+                document.getElementById('phone').value = '';
+                loadCustomers();
+            }
+        }
+
+        async function sendMessage() {
+            const message = {
+                customerId: document.getElementById('customerId').value,
+                channel: document.getElementById('channel').value,
+                strategy: document.getElementById('strategy').value,
+                content: document.getElementById('content').value
+            };
+            
+            const result = await apiCall('/communications', 'POST', message);
+            if (result.error) {
+                alert('[ERROR] Failed to send message: ' + result.error);
+            } else {
+                alert('[SUCCESS] ' + result.channelDisplay + '! ID: ' + result.communicationId);
+                document.getElementById('customerId').value = '';
+                document.getElementById('content').value = '';
+                loadMessageHistory(); // Refresh message history
+            }
+        }
+
+        async function autofillMessage() {
+            const customerId = document.getElementById('customerId').value;
+            const channel = document.getElementById('channel').value;
+            const strategy = document.getElementById('strategy').value;
+            
+            if (!customerId) {
+                document.getElementById('content').placeholder = 'Enter Customer ID first...';
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('content').value = '🤖 AI is generating personalized message...';
+            document.getElementById('content').placeholder = '';
+            
+            const result = await apiCall(`/autofill?customerId=${customerId}&channel=${channel}&strategy=${strategy}`);
+            if (result.error) {
+                document.getElementById('content').value = 'Error generating message. Please enter manually.';
+                document.getElementById('content').placeholder = '';
+                document.getElementById('aiAnalysis').style.display = 'none';
+            } else {
+                document.getElementById('content').value = result.message;
+                
+                // Show AI analysis if available
+                if (result.aiAnalysis) {
+                    const analysis = result.aiAnalysis;
+                    const analysisContent = `
+                        <div><strong>Previous Messages:</strong> ${analysis.messageCount}</div>
+                        <div><strong>Escalation Level:</strong> ${analysis.escalationLevel}/2</div>
+                        <div><strong>Preferred Channel:</strong> ${analysis.preferredChannel}</div>
+                        ${analysis.lastCommunication ? `<div><strong>Last Contact:</strong> ${Math.floor((new Date() - new Date(analysis.lastCommunication.timestamp)) / (1000 * 60 * 60 * 24))} days ago</div>` : ''}
+                        <div><strong>AI Personalization:</strong> ${result.isAIGenerated ? '✅ Enabled' : '❌ Disabled'}</div>
+                    `;
+                    document.getElementById('aiAnalysisContent').innerHTML = analysisContent;
+                    document.getElementById('aiAnalysis').style.display = 'block';
+                }
+            }
+        }
+
+        async function loadMessageHistory() {
+            const customerId = document.getElementById('customerId').value;
+            if (!customerId) {
+                document.getElementById('messageHistory').innerHTML = 'Please enter a Customer ID first';
+                return;
+            }
+            
+            const result = await apiCall(`/communications?customerId=${customerId}`);
+            const container = document.getElementById('messageHistory');
+            
+            if (result.error) {
+                container.innerHTML = '[ERROR] Failed to load message history';
+                return;
+            }
+            
+            if (!result.messages || result.messages.length === 0) {
+                container.innerHTML = 'No messages found for this customer';
+                return;
+            }
+            
+            container.innerHTML = result.messages.map(msg => `
+                <div class="item">
+                    <strong>${msg.channelDisplay}</strong><br>
+                    [ID] ${msg.messageId}<br>
+                    [STRATEGY] ${msg.strategy}<br>
+                    [TIME] ${new Date(msg.timestamp).toLocaleString()}<br>
+                    <span class="status ${msg.status}">${msg.status}</span>
+                </div>
+            `).join('');
+        }
+
+        async function checkStatus() {
+            const status = await apiCall('/admin');
+            const container = document.getElementById('status');
+            
+            if (status.error) {
+                container.innerHTML = '[OFFLINE] Server offline';
+            } else {
+                container.innerHTML = '[ONLINE] Server Online: ' + status.status;
+            }
+        }
+
+        // Auto-load status on page load
+        checkStatus();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(checkStatus, 30000);
+    </script>
+</body>
+</html>

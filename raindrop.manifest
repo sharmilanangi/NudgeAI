@@ -1,0 +1,154 @@
+application "nudge-ai" {
+  # Main API Gateway
+  service "api-gateway" {
+    visibility = "public"
+  }
+
+  # Core Services
+  service "customer-service" {
+    visibility = "private"
+  }
+
+  service "invoice-service" {
+    visibility = "private"
+  }
+
+  service "communication-service" {
+    visibility = "private"
+  }
+
+  service "ai-agent-service" {
+    visibility = "private"
+  }
+
+  service "compliance-service" {
+    visibility = "private"
+  }
+
+  service "analytics-service" {
+    visibility = "private"
+  }
+
+  # Protected Payment Service
+  service "payment-processor" {
+    visibility = "protected"
+  }
+
+  # Admin Service for Management
+  service "admin-service" {
+    visibility = "protected"
+  }
+
+  # Data Storage
+  sql_database "customers-db" {
+  }
+
+  sql_database "invoices-db" {
+  }
+
+  # Smart Storage
+  smartbucket "customer-data" {
+  }
+
+  smartbucket "communications-log" {
+  }
+
+  # Message Queues for Async Processing
+  queue "payment-events" {
+  }
+
+  queue "communication-events" {
+  }
+
+  queue "compliance-checks" {
+  }
+
+  queue "ai-processing" {
+  }
+
+  queue "email-sending" {
+  }
+
+  queue "sms-sending" {
+  }
+
+  queue "voice-calls" {
+  }
+
+  # Scheduled Tasks
+  task "daily-followup" {
+    type = "cron"
+    cron = "0 9 * * 1-5"
+  }
+
+  task "payment-reminder" {
+    type = "cron"
+    cron = "0 0,6,12,18 * * *"
+  }
+
+  task "analytics-update" {
+    type = "cron"
+    cron = "0 2 * * *"
+  }
+
+  # Event-Driven Observers
+  observer "payment-observer" {
+    source {
+      bucket = "customer-data"
+      rule {
+        actions = ["PutObject"]
+        prefix = "payments/"
+      }
+    }
+  }
+
+  observer "communication-observer" {
+    source {
+      bucket = "communications-log"
+      rule {
+        actions = ["PutObject"]
+      }
+    }
+  }
+
+  observer "customer-updates-observer" {
+    source {
+      bucket = "customer-data"
+      rule {
+        actions = ["PutObject", "DeleteObject"]
+        prefix = "customers/"
+      }
+    }
+  }
+
+  observer "compliance-observer" {
+    source {
+      queue = "compliance-checks"
+    }
+  }
+
+  # Additional Observers for Queue Processing
+  observer "ai-processing-observer" {
+    source {
+      queue = "ai-processing"
+    }
+  }
+
+  observer "email-sending-observer" {
+    source {
+      queue = "email-sending"
+    }
+  }
+
+  observer "sms-sending-observer" {
+    source {
+      queue = "sms-sending"
+    }
+  }
+
+  observer "voice-calls-observer" {
+    source {
+      queue = "voice-calls"
+    }
+  }
+}

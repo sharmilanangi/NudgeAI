@@ -1,0 +1,226 @@
+// Prisma schema for Invoices Database
+// This file defines the database schema for invoices, payments, and communications
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./invoices.db"
+}
+
+model Invoice {
+  id           Int        @id @default(autoincrement())
+  invoiceNumber String     @unique
+  customerId   String
+  amount       Float
+  dueDate      DateTime
+  issueDate    DateTime
+  daysPastDue  Int        @default(0)
+  status       InvoiceStatus @default(PENDING)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  metadata     Json?
+
+  // Relations
+  payments      Payment[]
+  paymentPlans  PaymentPlan[]
+  communications Communication[]
+  nextActions   NextAction[]
+  analyticsEvents AnalyticsEvent[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([daysPastDue])
+  @@index([amount])
+  @@map("invoices")
+}
+
+model Payment {
+  id            Int      @id @default(autoincrement())
+  invoiceNumber String
+  amount        Float
+  paymentDate   DateTime @default(now())
+  paymentMethod String?
+  transactionId String?
+  status        PaymentStatus @default(COMPLETED)
+  metadata      Json?
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceNumber], references: [invoiceNumber])
+
+  @@index([invoiceNumber])
+  @@index([paymentDate])
+  @@index([status])
+  @@map("payments")
+}
+
+model PaymentPlan {
+  id                Int      @id @default(autoincrement())
+  invoiceNumber     String
+  totalAmount       Float
+  installmentAmount Float
+  frequency         String?
+  nextPaymentDate   DateTime?
+  status            PaymentPlanStatus @default(ACTIVE)
+  createdAt         DateTime @default(now())
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceNumber], references: [invoiceNumber])
+
+  @@map("payment_plans")
+}
+
+model Communication {
+  id                Int      @id @default(autoincrement())
+  customerId        String
+  invoiceNumber     String?
+  channel           CommunicationChannel
+  strategy          CommunicationStrategy
+  content           String
+  sentAt            DateTime @default(now())
+  deliveryStatus    DeliveryStatus @default(PENDING)
+  responseReceivedAt DateTime?
+  responseContent   String?
+  aiGenerated       Boolean @default(true)
+  complianceScore   Float?
+  cost              Float?
+  metadata          Json?
+
+  // Relations
+  invoice  Invoice? @relation(fields: [invoiceNumber], references: [invoiceNumber])
+
+  @@index([customerId])
+  @@index([invoiceNumber])
+  @@index([channel])
+  @@index([sentAt])
+  @@index([deliveryStatus])
+  @@map("communications")
+}
+
+model NextAction {
+  id                Int      @id @default(autoincrement())
+  customerId        String
+  invoiceNumber     String
+  suggestedAction   String
+  suggestedTime     DateTime?
+  suggestedChannel  String?
+  suggestedStrategy String?
+  confidenceScore   Float?
+  createdAt         DateTime @default(now())
+  executedAt        DateTime?
+  executionStatus   String? @default("pending")
+  result            String?
+
+  // Relations
+  invoice  Invoice @relation(fields: [invoiceNumber], references: [invoiceNumber])
+
+  @@index([customerId])
+  @@index([invoiceNumber])
+  @@index([suggestedTime])
+  @@index([executionStatus])
+  @@map("next_actions")
+}
+
+model AnalyticsEvent {
+  id         Int      @id @default(autoincrement())
+  eventType  String
+  customerId String?
+  invoiceNumber String?
+  eventData  Json?
+  timestamp  DateTime @default(now())
+  userId     String?
+  sessionId  String?
+
+  // Relations
+  invoice  Invoice? @relation(fields: [invoiceNumber], references: [invoiceNumber])
+
+  @@index([eventType])
+  @@index([timestamp])
+  @@index([customerId])
+  @@map("analytics_events")
+}
+
+// Views for analytics (defined as model views)
+model CustomerSummary {
+  customerId       String
+  name             String
+  email            String?
+  phone            String?
+  totalInvoices    Int
+  paidAmount       Float
+  outstandingAmount Float
+  totalPaid        Float
+  maxDaysPastDue   Int
+  customerSince    DateTime
+
+  @@map("customer_summary")
+}
+
+model InvoicePerformance {
+  invoiceNumber      String
+  customerId         String
+  amount             Float
+  daysPastDue        Int
+  status             String
+  communicationCount Int
+  lastCommunication  DateTime?
+  amountPaid         Float
+  balanceDue         Float
+  collectionStatus   String
+
+  @@map("invoice_performance")
+}
+
+model ChannelEffectiveness {
+  channel               String
+  strategy              String
+  totalSent             Int
+  delivered             Int
+  responses             Int
+  avgComplianceScore    Float?
+  avgCost               Float?
+  conversions           Int
+
+  @@map("channel_effectiveness")
+}
+
+// Enums
+enum InvoiceStatus {
+  PENDING
+  PAID
+  PARTIALLY_PAID
+  WRITTEN_OFF
+}
+
+enum PaymentStatus {
+  COMPLETED
+  FAILED
+  PENDING
+}
+
+enum PaymentPlanStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum CommunicationChannel {
+  EMAIL
+  SMS
+  PHONE
+}
+
+enum CommunicationStrategy {
+  REMINDER
+  NEGOTIATION
+  FINAL_NOTICE
+}
+
+enum DeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
